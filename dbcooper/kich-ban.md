@@ -1,0 +1,15 @@
+On November 24, 1971, a man calling himself Dan Cooper boarded Northwest Orient Flight 305 in Portland, Oregon.
+
+Before the night was over, he had demanded $200,000 in ransom, received four parachutes, released the passengers, and disappeared after jumping from the aircraft somewhere over the Pacific Northwest.
+
+The FBI launched an extensive investigation. Hundreds of suspects were examined. Years later, a portion of the ransom money was discovered along the Columbia River.
+
+But the most important questions remained unanswered.
+
+Who was D. B. Cooper? Did he survive the jump? And where did the remaining ransom money go?
+
+Explore one of America's most enduring unsolved historical mysteries through investigative records, historical evidence, and competing theories.
+
+**This documentary is based on publicly available historical records and investigative material. Unconfirmed theories are presented as possibilities, not established facts.**
+
+#DBCooper #TrueCrime #UnsolvedMystery #ColdCase #AmericanHistory #FBI #HistoricalMystery #CrimeDocumentary
