@@ -141,6 +141,26 @@ def cmd_candidates(args):
           "Chọn giọng bằng: python scripts/women_story_life.py select A|B|C")
 
 
+def cmd_clone(args):
+    """Clone giọng từ file âm thanh mẫu (3-15 giây, sạch, 1 người nói) và lưu lại."""
+    ref = Path(args.ref)
+    ref_text = args.ref_text or Path(args.ref_text_file).read_text(encoding="utf-8").strip()
+    model = load_model(args.device)
+    prompt = model.create_voice_clone_prompt(ref_audio=str(ref), ref_text=ref_text)
+    dst = Path(args.voice_dir)
+    dst.mkdir(parents=True, exist_ok=True)
+    prompt.save(str(dst / f"{args.name}.pt"))
+    shutil.copy(ref, dst / f"{args.name}_reference{ref.suffix}")
+    meta = dict(name=args.name, candidate="clone", label=f"clone of {ref.name}",
+                seed=args.seed, speed=args.speed, ref_text=ref_text)
+    (dst / f"{args.name}.json").write_text(
+        json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
+    sample_text = Path(args.test_text).read_text(encoding="utf-8") if args.test_text else SAMPLE_TEXT
+    audio = gen(model, sample_text, args.seed, voice_clone_prompt=prompt, speed=args.speed)
+    sf.write(dst / f"{args.name}_sample.wav", audio, model.sampling_rate)
+    print(f"Đã lưu giọng '{args.name}' tại {dst}\nNghe thử: {dst / (args.name + '_sample.wav')}")
+
+
 def cmd_select(args):
     src = Path(args.voice_dir) / "candidates"
     key = args.choice.upper()
@@ -171,7 +191,7 @@ def split_chunks(paragraph, max_words=60):
 
 
 def cmd_narrate(args):
-    voice = Path(args.voice_dir) / f"{VOICE_NAME}.pt"
+    voice = Path(args.voice_dir) / f"{args.name}.pt"
     if not voice.exists():
         raise SystemExit("Chưa lưu giọng. Chạy 'candidates' rồi 'select' trước.")
     prompt = VoiceClonePrompt.load(str(voice))
@@ -214,7 +234,7 @@ def cmd_narrate(args):
     else:
         logging.warning("Không có ffmpeg: chỉ xuất raw.wav, chưa chuẩn hoá -16 LUFS.")
     (out / "report.txt").write_text(
-        f"voice: {VOICE_NAME} ({meta['candidate']} - {meta['label']})\n"
+        f"voice: {args.name} ({meta['candidate']} - {meta['label']})\n"
         f"duration: {minutes:.2f} min | words: {words} | wpm: {words / minutes:.0f}\n"
         + "\n".join(report) + "\n", encoding="utf-8")
     print(f"Xong: {out} ({minutes:.1f} phút, {words / minutes:.0f} wpm)")
@@ -226,11 +246,21 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--voice-dir", default=str(DEFAULT_DIR))
     ap.add_argument("--device", default=None)
+    ap.add_argument("--name", default=VOICE_NAME, help="tên giọng đã lưu (mặc định women_story_life)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("candidates").set_defaults(fn=cmd_candidates)
     s = sub.add_parser("select")
     s.add_argument("choice", choices=list("ABCabc"))
     s.set_defaults(fn=cmd_select)
+    c = sub.add_parser("clone", help="clone giọng từ file âm thanh mẫu")
+    c.add_argument("--ref", required=True, help="file âm thanh mẫu (wav/mp3)")
+    g = c.add_mutually_exclusive_group(required=True)
+    g.add_argument("--ref-text", help="lời đọc trong file mẫu")
+    g.add_argument("--ref-text-file", help="file .txt chứa lời đọc trong file mẫu")
+    c.add_argument("--seed", type=int, default=7)
+    c.add_argument("--speed", type=float, default=1.0)
+    c.add_argument("--test-text", help="file .txt đọc thử (mặc định: đoạn mẫu 80 giây)")
+    c.set_defaults(fn=cmd_clone)
     n = sub.add_parser("narrate")
     n.add_argument("script", help="file .txt, các đoạn cách nhau 1 dòng trống; "
                    "đầu đoạn có thể ghi [A]..[H] để chọn nhịp theo chế độ cảm xúc")
