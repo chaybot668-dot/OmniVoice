@@ -98,11 +98,18 @@ def build_package(out, pkg):
     if not chapters or not chapters[0].startswith("0:00"):
         raise SystemExit("chapters.txt thiếu mốc 0:00.")
     desc = "\n\n".join([
-        pkg["description_intro"], pkg["disclosure"], "\n".join(chapters),
-        pkg["channel_line"], " ".join(pkg["hashtags"])])
+        pkg["description_intro"], "\n".join(pkg.get("highlights", [])),
+        "⏱ CHAPTERS\n" + "\n".join(chapters), "\n".join(pkg.get("cta", [])),
+        pkg["disclosure"], pkg["channel_line"], " ".join(pkg["hashtags"])])
+    tag_chars = len(", ".join(pkg["tags"]))
+    if tag_chars > 500:
+        raise SystemExit(f"Tags dài {tag_chars} ký tự, YouTube giới hạn 500. Bớt tag.")
+    for t in pkg["titles"]:
+        if len(t) > 100:
+            raise SystemExit(f"Tiêu đề quá 100 ký tự: {t}")
     lines = ["=== YOUTUBE PACKAGE ===", "", "TITLE OPTIONS (chọn 1, đều khớp nội dung):"]
     lines += [f"  {i}. {t}  [{len(t)} ký tự]" for i, t in enumerate(pkg["titles"], 1)]
-    lines += ["", "DESCRIPTION:", desc, "", "TAGS (dán vào ô Tags):", ", ".join(pkg["tags"]),
+    lines += ["", "DESCRIPTION:", desc, "", f"TAGS (dán vào ô Tags, {tag_chars}/500 ký tự):", ", ".join(pkg["tags"]),
               "", "THUMBNAIL TEXT (gợi ý):"] + [f"  - {t}" for t in pkg["thumbnail_text"]]
     lines += ["", "BÌNH LUẬN GHIM (tuỳ chọn):", pkg["pinned_comment"], "",
               "TRƯỚC KHI ĐĂNG:",
