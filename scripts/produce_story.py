@@ -30,16 +30,6 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-FILES = [
-    "01_The_Phone_That_Shouldnt_Be_There.mp3",
-    "02_The_Man_Who_Always_Had_An_Explanation.mp3",
-    "03_The_Woman_Behind_The_Letter_M.mp3",
-    "04_The_Messages_That_Changed_Everything.mp3",
-    "05_The_Woman_Who_Believed_His_Story.mp3",
-    "06_What_The_Phone_Was_Really_Hiding.mp3",
-    "07_The_Last_Lie.mp3",
-    "08_The_Day_I_Stopped_Looking_For_Answers.mp3",
-]
 FULL_NAME = "HER_SIDE_OF_THE_STORY_FULL_AUDIO.mp3"
 MIN_WORDS, MAX_WORDS = 4500, 6000
 MIN_MIN, MAX_MIN = 30.0, 45.0
@@ -47,6 +37,15 @@ CHUNK_GAP = 0.4  # giây, giữa các câu trong cùng đoạn (0.3-0.5)
 PARA_GAP = 0.9  # giây, giữa các đoạn (0.7-1.2)
 CHAPTER_GAP = 0.8  # giây, giữa các chương trong file ghép
 TARGET_LUFS, TARGET_TP = -16.0, -1.0
+
+
+def chapter_files(chapters):
+    names = []
+    for i, c in enumerate(chapters, 1):
+        t = re.sub(r"^CHAPTER\s+\d+\s*[—-]\s*", "", c["title"], flags=re.I)
+        slug = "_".join(re.findall(r"[A-Za-z0-9]+", t.replace("'", ""))).title()
+        names.append(f"{i:02d}_{slug}.mp3")
+    return names
 
 
 def load_base():
@@ -76,14 +75,14 @@ def count_words(ch):
     return sum(len(t.split()) for _, t in ch["paras"])
 
 
-def render_chapter(w, model, prompt, seed, idx, ch, sr, work):
-    cache = work / f"ch{idx:02d}.wav"
+def render_chapter(w, model, prompt, seed, idx, ch, sr, work, scale):
+    cache = work / f"ch{idx:02d}_s{scale:.2f}.wav"
     if cache.exists():
         logging.info("Chương %d: dùng bản đã đọc (%s)", idx, cache)
         return sf.read(cache, dtype="float32")[0]
     parts = []
     for i, (mode, text) in enumerate(ch["paras"], 1):
-        speed = w.MODE_SPEED.get(mode, w.DEFAULT_SPEED)
+        speed = w.MODE_SPEED.get(mode, w.DEFAULT_SPEED) * scale
         chunks = w.split_chunks(text)
         for j, chunk in enumerate(chunks):
             logging.info("Chương %d - đoạn %d/%d - câu %d/%d", idx, i, len(ch["paras"]),
@@ -145,23 +144,23 @@ def main():
     ap.add_argument("--platform", help="YouTube | TikTok | Facebook (bỏ trống = hỏi)")
     ap.add_argument("--yes", action="store_true", help="bỏ xác nhận cuối (vẫn cần --voice, --platform)")
     ap.add_argument("--only", type=int, help="chỉ đọc thử chương này, không ghép, không kiểm thời lượng")
+    ap.add_argument("--speed-scale", type=float, default=1.0,
+                    help="nhân tốc độ đọc (vd 0.9 = chậm 10%%) để chỉnh số từ/phút và tổng thời lượng")
     ap.add_argument("--device")
     a = ap.parse_args()
     if not shutil.which("ffmpeg"):
         raise SystemExit("Cần ffmpeg để xuất MP3 và đo âm lượng.")
 
     chapters = parse_story(a.story, w)
-    if len(chapters) != len(FILES):
-        raise SystemExit(f"Truyện phải có đúng {len(FILES)} chương, đang có {len(chapters)}.")
+    FILES = chapter_files(chapters)
     words = sum(count_words(c) for c in chapters)
     print(f"Số từ lời đọc: {words} (cho phép {MIN_WORDS}-{MAX_WORDS})")
-    if not a.only and not (MIN_WORDS <= words <= MAX_WORDS):
-        raise SystemExit("Số từ ngoài khoảng cho phép: sửa truyện rồi chạy lại.")
+    if not (MIN_WORDS <= words <= MAX_WORDS):
+        print(f"CẢNH BÁO: số từ ngoài {MIN_WORDS}-{MAX_WORDS}. Luật cứng là thời lượng thực đo 30-45 phút.")
     if a.only and not 1 <= a.only <= len(FILES):
         raise SystemExit(f"--only phải từ 1 đến {len(FILES)}.")
 
     # QUY TẮC: hỏi giọng + nền tảng TRƯỚC khi tạo bất kỳ audio nào.
-    a.voices_root = a.voices_root
     name, platform, vdir = w.ask_voice_and_platform(Namespace(
         voices_root=a.voices_root, voice_dir=a.voice_dir, voice=a.voice,
         platform=a.platform, yes=a.yes))
@@ -175,8 +174,9 @@ def main():
     sr = model.sampling_rate
 
     todo = [a.only] if a.only else range(1, len(FILES) + 1)
-    audio = {i: render_chapter(w, model, prompt, meta["seed"], i, chapters[i - 1], sr, work)
-             for i in todo}
+    audio = {i: render_chapter(w, model, prompt, meta["seed"], i, chapters[i - 1], sr, work,
+                               a.speed_scale) for i in todo}
+    cpath = lambda i: work / f"ch{i:02d}_s{a.speed_scale:.2f}.wav"
 
     def export(idx_list, with_full):
         # Chuẩn hoá bằng MỘT mức gain chung để âm lượng các chương đồng đều.
@@ -192,7 +192,7 @@ def main():
 
     if a.only:
         i = a.only
-        wav = work / f"ch{i:02d}.wav"
+        wav = cpath(i)
         loud, _ = measure(wav)
         dst = out / FILES[i - 1]
         to_mp3(wav, dst, TARGET_LUFS - loud)
@@ -214,7 +214,7 @@ def main():
         dur = len(audio[i]) / sr
         lines.append(f"{mmss(offset)} {chapters[i - 1]['title']}")
         offset += dur + CHAPTER_GAP
-        wav = work / f"ch{i:02d}.wav"
+        wav = cpath(i)
         to_mp3(wav, out / FILES[i - 1], gain)
     to_mp3(full_wav, out / FULL_NAME, gain)
     (out / "chapters.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
