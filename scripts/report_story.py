@@ -31,7 +31,7 @@ def load_env(path):
     env = {}
     p = Path(path)
     if p.exists():
-        for ln in p.read_text(encoding="utf-8").splitlines():
+        for ln in p.read_text(encoding="utf-8-sig").splitlines():
             ln = ln.strip()
             if ln and not ln.startswith("#") and "=" in ln:
                 k, v = ln.split("=", 1)

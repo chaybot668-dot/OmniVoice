@@ -31,7 +31,7 @@ def call(token, method):
 def save(updates):
     data = {}
     if ENV.exists():
-        for ln in ENV.read_text(encoding="utf-8").splitlines():
+        for ln in ENV.read_text(encoding="utf-8-sig").splitlines():
             if "=" in ln and not ln.strip().startswith("#"):
                 k, v = ln.split("=", 1)
                 data[k.strip()] = v.strip()
