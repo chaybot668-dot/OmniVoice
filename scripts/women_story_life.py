@@ -190,7 +190,49 @@ def split_chunks(paragraph, max_words=60):
     return chunks
 
 
+PLATFORMS = ["YouTube", "TikTok", "Facebook"]
+
+
+def ask_voice_and_platform(args):
+    """QUY TẮC BẮT BUỘC: trước khi tạo audio phải hỏi (hoặc được chỉ định rõ) giọng + nền tảng.
+
+    Không có --voice/--platform thì hỏi trực tiếp; chạy không tương tác mà thiếu thì dừng,
+    không tự đoán.
+    """
+    root = Path(args.voices_root) if args.voices_root else Path(args.voice_dir).parent
+    found = sorted(d.name for d in root.glob("*") if (d / f"{d.name}.pt").exists())
+    if not found:
+        raise SystemExit(f"Không thấy giọng nào đã lưu trong {root}.")
+    interactive = __import__("sys").stdin.isatty()
+
+    def pick(title, options, given):
+        if given:
+            hit = next((o for o in options if o.lower() == given.lower()), None)
+            if not hit:
+                raise SystemExit(f"{title} '{given}' không có. Chọn một trong: {', '.join(options)}")
+            return hit
+        if not interactive:
+            raise SystemExit(f"Thiếu {title}: phải chỉ định rõ, không tự chọn. "
+                             f"Chọn một trong: {', '.join(options)}")
+        print(f"\n{title}:")
+        for i, o in enumerate(options, 1):
+            print(f"  {i}. {o}")
+        while True:
+            c = input("Nhập số: ").strip()
+            if c.isdigit() and 1 <= int(c) <= len(options):
+                return options[int(c) - 1]
+
+    name = pick("GIỌNG ĐỌC", found, args.voice)
+    platform = pick("NỀN TẢNG ĐĂNG", PLATFORMS, args.platform)
+    if interactive and not args.yes:
+        ok = input(f"\nSẽ tạo audio bằng giọng '{name}' cho {platform}. Chạy? [y/N]: ").strip().lower()
+        if ok != "y":
+            raise SystemExit("Đã hủy, chưa tạo audio.")
+    return name, platform, root / name
+
+
 def cmd_narrate(args):
+    args.name, platform, args.voice_dir = ask_voice_and_platform(args)
     voice = Path(args.voice_dir) / f"{args.name}.pt"
     if not voice.exists():
         raise SystemExit("Chưa lưu giọng. Chạy 'candidates' rồi 'select' trước.")
@@ -235,6 +277,7 @@ def cmd_narrate(args):
         logging.warning("Không có ffmpeg: chỉ xuất raw.wav, chưa chuẩn hoá -16 LUFS.")
     (out / "report.txt").write_text(
         f"voice: {args.name} ({meta['candidate']} - {meta['label']})\n"
+        f"platform: {platform}\n"
         f"duration: {minutes:.2f} min | words: {words} | wpm: {words / minutes:.0f}\n"
         + "\n".join(report) + "\n", encoding="utf-8")
     print(f"Xong: {out} ({minutes:.1f} phút, {words / minutes:.0f} wpm)")
@@ -265,6 +308,10 @@ def main():
     n.add_argument("script", help="file .txt, các đoạn cách nhau 1 dòng trống; "
                    "đầu đoạn có thể ghi [A]..[H] để chọn nhịp theo chế độ cảm xúc")
     n.add_argument("--out", default="out/episode")
+    n.add_argument("--voice", help="tên giọng (bỏ trống = hỏi)")
+    n.add_argument("--platform", help="YouTube | TikTok | Facebook (bỏ trống = hỏi)")
+    n.add_argument("--voices-root", help="thư mục chứa các giọng (mặc định: cha của --voice-dir)")
+    n.add_argument("--yes", action="store_true", help="bỏ bước xác nhận cuối (vẫn phải có --voice và --platform)")
     n.set_defaults(fn=cmd_narrate)
     args = ap.parse_args()
     args.fn(args)
