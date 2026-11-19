@@ -2,7 +2,7 @@
 """Sản xuất audiobook nhiều chương từ stories/<tên>/story.txt bằng giọng đã lưu.
 
 Quy tắc bắt buộc (giống `narrate`): phải chọn GIỌNG và NỀN TẢNG trước khi tạo audio.
-Quy tắc thời lượng: tổng 30-45 phút, 4.500-6.000 từ. Ngoài khoảng đó -> KHÔNG xuất MP3.
+Quy tắc thời lượng: tổng 30-60 phút, 4.500-6.000 từ. Ngoài khoảng đó -> KHÔNG xuất MP3.
 
 Định dạng story.txt:
   ## 1. Tên chương
@@ -32,7 +32,7 @@ import soundfile as sf
 
 FULL_NAME = "HER_SIDE_OF_THE_STORY_FULL_AUDIO.mp3"
 MIN_WORDS, MAX_WORDS = 4500, 6000
-MIN_MIN, MAX_MIN = 30.0, 45.0
+MIN_MIN, MAX_MIN = 30.0, 60.0
 CHUNK_GAP = 0.4  # giây, giữa các câu trong cùng đoạn (0.3-0.5)
 PARA_GAP = 0.9  # giây, giữa các đoạn (0.7-1.2)
 CHAPTER_GAP = 0.8  # giây, giữa các chương trong file ghép
@@ -156,7 +156,7 @@ def main():
     words = sum(count_words(c) for c in chapters)
     print(f"Số từ lời đọc: {words} (cho phép {MIN_WORDS}-{MAX_WORDS})")
     if not (MIN_WORDS <= words <= MAX_WORDS):
-        print(f"CẢNH BÁO: số từ ngoài {MIN_WORDS}-{MAX_WORDS}. Luật cứng là thời lượng thực đo 30-45 phút.")
+        print(f"CẢNH BÁO: số từ ngoài {MIN_WORDS}-{MAX_WORDS}. Luật cứng là thời lượng thực đo 30-60 phút.")
     if a.only and not 1 <= a.only <= len(FILES):
         raise SystemExit(f"--only phải từ 1 đến {len(FILES)}.")
 
@@ -205,7 +205,7 @@ def main():
     total_min = len(sf.read(full_wav, dtype="float32")[0]) / sr / 60
     print(f"Thời lượng thực đo: {total_min:.1f} phút (cho phép {MIN_MIN:.0f}-{MAX_MIN:.0f})")
     if not (MIN_MIN <= total_min <= MAX_MIN):
-        raise SystemExit("Thời lượng ngoài 30-45 phút: KHÔNG xuất MP3. "
+        raise SystemExit("Thời lượng ngoài 30-60 phút: KHÔNG xuất MP3. "
                          + ("Mở rộng truyện." if total_min < MIN_MIN else "Cắt bớt truyện."))
 
     lines, report = [], []
