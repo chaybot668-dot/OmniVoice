@@ -5,7 +5,7 @@
   python scripts/make_brand_clips.py out_dir --logo stories/brand/logo.webp --intro-seconds 5 --outro-seconds 12
 
 Xuất:
-  intro.mp4            logo hiện dần + câu khẩu hiệu, ngắn (mặc định 5 giây) để người xem vào truyện nhanh
+  intro.mp4            logo hiện dần + câu khẩu hiệu, ngắn (mặc định 8 giây) để người xem vào truyện nhanh
   outro.mp4            cảm ơn + Subscribe + khẩu hiệu, bố cục giữa
   outro_endscreen.mp4  cùng nội dung nhưng chừa nửa phải cho phần tử "End screen" của YouTube
 Font: Dancing Script, Lora (SIL OFL, dùng thương mại được) trong scripts/fonts.  Cần: numpy, scipy, Pillow, ffmpeg.
@@ -174,8 +174,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("out_dir")
     ap.add_argument("--logo", default=str(Path(__file__).resolve().parents[1] / "stories/brand/logo.webp"))
-    ap.add_argument("--intro-seconds", type=float, default=5.0)
-    ap.add_argument("--outro-seconds", type=float, default=12.0)
+    ap.add_argument("--intro-seconds", type=float, default=8.0)
+    ap.add_argument("--outro-seconds", type=float, default=16.0)
     a = ap.parse_args()
     out = Path(a.out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -204,37 +204,40 @@ def main():
 
     # ================= INTRO =================
     di = a.intro_seconds
+    ki = di / 5.0  # mọi nhịp chuyển động giãn theo độ dài (bản gốc thiết kế cho 5 giây)
     logo_big = circle_logo(a.logo, 700)
 
     def intro_frame(t):
         im = base(t)
-        s = 0.90 + 0.10 * ease(t / 2.4)
+        u = t / ki
+        s = 0.90 + 0.10 * ease(u / 2.4)
         sz = int(700 * s)
         lg = logo_big.resize((sz, sz), Image.LANCZOS)
         glow = Image.new("RGBA", (sz + 260, sz + 260), (0, 0, 0, 0))
         ImageDraw.Draw(glow).ellipse([100, 100, sz + 160, sz + 160], fill=GOLD + (int(70 + 28 * np.sin(t * 2.2)),))
         glow = glow.filter(ImageFilter.GaussianBlur(60))
-        al = ease((t - 0.2) / 1.2)
+        al = ease((u - 0.2) / 1.2)
         paste(im, glow, W / 2 - glow.width / 2, 430 - glow.height / 2, al)
         paste(im, lg, W / 2 - sz / 2, 430 - sz / 2, al)
         # đường vàng + khẩu hiệu
-        ta = ease((t - 2.0) / 1.0)
+        ta = ease((u - 2.0) / 1.0)
         if ta > 0:
             d = ImageDraw.Draw(im)
-            half = int(260 * ease((t - 1.8) / 1.2))
+            half = int(260 * ease((u - 1.8) / 1.2))
             d.line([(W / 2 - half, 842), (W / 2 + half, 842)], fill=GOLD + (200,), width=3)
         paste(im, tag1, 0, 860, ta)
-        fade = 1 - ease((t - (di - 0.7)) / 0.7)
+        fade = 1 - ease((t - (di - 0.7 * ki)) / (0.7 * ki))
         if fade < 1:
             im = Image.blend(Image.new("RGBA", im.size, (0, 0, 0, 255)), im, fade)
         return im
 
     make_audio(out / "_intro.wav", di,
-               [(1.2, 74, 3.5, 0.55), (2.2, 69, 3.0, 0.5), (3.0, 62, 2.5, 0.45)], [50, 57, 62, 65], 1)
+               [(1.2 * ki, 74, 3.5 * ki, 0.55), (2.2 * ki, 69, 3.0 * ki, 0.5), (3.0 * ki, 62, 2.5 * ki, 0.45)], [50, 57, 62, 65], 1)
     render_video(out / "intro.mp4", int(di * FPS), intro_frame, out / "_intro.wav")
 
     # ================= OUTRO =================
     do = a.outro_seconds
+    ko = do / 12.0
     thanks_c = text_layer([("Thank you for listening.", CREAM)], CREAM, f_big)
     heart_small = text_layer([("for more heartfelt stories", PINK)], PINK, f_small)
 
@@ -261,7 +264,8 @@ def main():
 
         def fr(t):
             im = base(t)
-            la = ease((t - 0.1) / 1.0)
+            u = t / ko
+            la = ease((u - 0.1) / 1.0)
             sz = logo.width
             glow = Image.new("RGBA", (sz + 220, sz + 220), (0, 0, 0, 0))
             ImageDraw.Draw(glow).ellipse([80, 80, sz + 140, sz + 140], fill=GOLD + (int(55 + 20 * np.sin(t * 2.0)),))
@@ -270,29 +274,29 @@ def main():
             paste(im, glow, cx - glow.width / 2, ly - glow.height / 2, la)
             paste(im, logo, cx - sz / 2, ly - sz / 2, la)
             tl = text_layer([("Thank you for listening.", CREAM)], CREAM, f_big if not endscreen else font("DancingScript.ttf", 84), width=tw)
-            paste(im, tl, cx - tw / 2, 575 if not endscreen else 580, ease((t - 0.8) / 0.9))
+            paste(im, tl, cx - tw / 2, 575 if not endscreen else 580, ease((u - 0.8) / 0.9))
             tg = text_layer([("Every Woman Has a Story.", CREAM), ("Not Every Story Gets Told.", PINK)], CREAM,
                             font("DancingScript.ttf", 60 if not endscreen else 52), width=tw)
-            paste(im, tg, cx - tw / 2, 705 if not endscreen else 705, ease((t - 1.8) / 0.9))
-            ba = ease((t - 3.2) / 0.8)
-            pulse = 1 + 0.025 * np.sin(max(0, t - 4.0) * 3.4)
+            paste(im, tg, cx - tw / 2, 705 if not endscreen else 705, ease((u - 1.8) / 0.9))
+            ba = ease((u - 3.2) / 0.8)
+            pulse = 1 + 0.025 * np.sin(max(0, t - 4.0 * ko) * 3.0)
             b2 = btn.resize((int(btn.width * pulse * (0.8 if endscreen else 1)), int(btn.height * pulse * (0.8 if endscreen else 1))), Image.LANCZOS)
             by = 900 if not endscreen else 915
             paste(im, b2, cx - b2.width / 2, by, ba)
             if endscreen:
                 # chừa nửa phải cho phần tử video của YouTube; khung nhạt cho cân bố cục
                 d = ImageDraw.Draw(im)
-                ea = ease((t - 2.0) / 1.0)
+                ea = ease((u - 2.0) / 1.0)
                 if ea > 0:
                     d.rounded_rectangle([1010, 250, 1750, 666], radius=22, outline=GOLD + (int(120 * ea),), width=2)
-            fade = 1 - ease((t - (do - 1.2)) / 1.2)
+            fade = 1 - ease((t - (do - 1.2 * ko)) / (1.2 * ko))
             if fade < 1:
                 im = Image.blend(Image.new("RGBA", im.size, (0, 0, 0, 255)), im, fade)
             return im
         return fr
 
     make_audio(out / "_outro.wav", do,
-               [(0.9, 77, 4.0, 0.5), (2.6, 74, 4.0, 0.45), (4.4, 69, 4.5, 0.45), (6.4, 65, 5.0, 0.4), (8.4, 62, 6.0, 0.4)],
+               [(0.9 * ko, 77, 4.0 * ko, 0.5), (2.6 * ko, 74, 4.0 * ko, 0.45), (4.4 * ko, 69, 4.5 * ko, 0.45), (6.4 * ko, 65, 5.0 * ko, 0.4), (8.4 * ko, 62, 6.0 * ko, 0.4)],
                [50, 53, 57, 62], 2)
     render_video(out / "outro.mp4", int(do * FPS), outro_frame_factory(False), out / "_outro.wav")
     render_video(out / "outro_endscreen.mp4", int(do * FPS), outro_frame_factory(True), out / "_outro.wav")
