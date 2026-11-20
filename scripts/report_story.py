@@ -78,7 +78,7 @@ def api(token, method, fields=None, files=None):
 
 
 def _smart_title(text):
-    small = {"of", "the", "a", "an", "and", "at", "to", "in", "on", "for", "his", "her"}
+    small = {"of", "the", "a", "an", "and", "at", "to", "in", "on", "for", "from", "with", "by"}
     words = text.lower().split()
     return " ".join(w if (i and w in small) else w.capitalize() for i, w in enumerate(words))
 
