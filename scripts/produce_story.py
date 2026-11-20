@@ -220,6 +220,7 @@ def main():
     ap.add_argument("--only", type=int, help="chỉ đọc thử chương này, không ghép, không kiểm thời lượng")
     ap.add_argument("--speed-scale", type=float, default=1.0,
                     help="nhân tốc độ đọc (vd 0.9 = chậm 10%%) để chỉnh số từ/phút và tổng thời lượng")
+    ap.add_argument("--wav", action="store_true", help="xuất thêm bản master WAV PCM 24-bit/48 kHz")
     ap.add_argument("--single", action="store_true", help="chỉ xuất 1 file MP3 liền mạch (không xuất từng chương)")
     ap.add_argument("--no-qc", action="store_true", help="bỏ bước kiểm lỗi lặp/cắt/lệch lời bằng Whisper")
     ap.add_argument("--seed-offset", type=int, default=0,
@@ -311,6 +312,9 @@ def main():
         if not a.single:
             to_mp3(wav, out / FILES[i - 1], gain)
     to_mp3(full_wav, out / FULL_NAME, gain)
+    if a.wav:
+        ff("-i", str(full_wav), "-af", f"aresample=48000,volume={gain:.3f}dB,alimiter=limit=0.84:level=disabled",
+           "-ac", "2", "-c:a", "pcm_s24le", str(out / FULL_NAME.replace(".mp3", ".wav")))
     (out / "chapters.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
     (out / "transcript.txt").write_text(
         "\n\n".join(f"{c['title']}\n\n" + "\n\n".join(t for _, t in c["paras"])

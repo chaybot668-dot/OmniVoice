@@ -33,3 +33,12 @@ Nguyên tắc: CHẤT LƯỢNG HƠN SỐ LƯỢNG.
 - Luôn BÁO thời lượng ước tính (kèm khoảng sai số) từ số từ; tuyệt đối không bịa/lặp/kéo giãn nội dung để dài hơn.
 - Hiệu chỉnh ước tính: truyện ex-wife-dinner v2 = 3.664 từ -> đo thật 26,2 phút (khoảng 140 từ/phút, --speed-scale 0.9, đã gồm khoảng nghỉ).
   Ước tính sau này: phút ≈ số từ / 135 (sai số khoảng ±10%), sau đó thay bằng số đo thật khi có file.
+
+## I. QUALITY OVER LENGTH — Chống lặp, toàn vẹn nội dung, âm thanh xuất sắc (20/11/2026)
+- Không lặp thông tin, không kéo dài bằng nội dung dư thừa. Thời lượng chỉ là mục tiêu định hướng, KHÔNG phải tiêu chuẩn chất lượng.
+- Mỗi phân đoạn phải mang dữ kiện, bằng chứng, bối cảnh, diễn biến hoặc giá trị cảm xúc MỚI. Thiếu tư liệu -> kịch bản ngắn hơn nhưng hoàn chỉnh.
+- Âm thanh: voice chất lượng cao, phát âm chính xác, tự nhiên; WAV PCM 24-bit/48 kHz nếu hỗ trợ (`--wav`); MP3 192-320 kbps; ~-16 LUFS, true peak <= -1 dBTP.
+  Kiểm soát clipping, noise, nén, nhạc nền, ducking, chuyển cảnh.
+- Trước khi xuất kiểm: lặp ý, câu kéo dài, độ chính xác dữ kiện, nhịp kể, chất lượng giọng, nhạc nền, file âm thanh thực tế.
+- Nguyên tắc cuối: Quality over Length. Factual Integrity over Drama.
+- Giới hạn của công cụ (nói thật): chưa có nhạc nền/ducking tự động; chưa nghe được giọng (cần chủ kênh nghe); kiểm dữ kiện chỉ có nghĩa với nội dung phi hư cấu và cần nguồn đã mở đọc.
