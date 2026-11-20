@@ -6,7 +6,9 @@
   python scripts/make_audio_bars.py audio.mp3 bars.mp4      # nền ĐEN (dùng chế độ hòa trộn Screen/Lighten)
   python scripts/make_audio_bars.py audio.mp3 final.mp4 --scene loop.mp4   # ghép thẳng lên video nền + âm thanh
 
-Thanh bám theo CHÍNH file âm thanh nên khớp giọng đọc. Mặc định KHÔNG kèm âm thanh (--with-audio để kèm).
+Thanh bám theo CHÍNH file âm thanh nên khớp giọng đọc.
+  python scripts/make_audio_bars.py synthetic bars.webm --loop-seconds 60   # clip minh họa LẶP LIỀN MẠCH, không cần audio
+ Mặc định KHÔNG kèm âm thanh (--with-audio để kèm).
 Màu: --color (thân) và --accent (đầu thanh). Nền sáng: --color 1B1B1B --accent 555555.
 """
 import argparse
@@ -56,6 +58,27 @@ def analyse(x, nbands):
     return L, B
 
 
+def synthetic(N, nbands, seed):
+    """Tín hiệu giả giống giọng nói nhưng TUẦN HOÀN theo N khung -> lặp liền mạch."""
+    rng = np.random.default_rng(seed)
+    env = np.zeros(N, np.float32)
+    t = 0.0
+    while t < N:
+        w = int(rng.uniform(0.15, 0.45) * FPS) + 3
+        amp = rng.uniform(0.35, 1.0)
+        idx = (np.arange(w) + int(t)) % N          # vòng quanh -> không có mối nối
+        env[idx] = np.maximum(env[idx], amp * np.hanning(w))
+        t += w + rng.uniform(0.0, 0.18) * FPS + (rng.uniform(0.5, 1.1) * FPS if rng.random() < 0.12 else 0)
+    L = np.clip(env / (np.percentile(env, 95) + 1e-6), 0, 1.15).astype(np.float32)
+    ph = np.arange(N) / N * 2 * np.pi
+    B = np.zeros((N, nbands), np.float32)
+    for b in range(nbands):
+        mod = sum(np.sin(int(rng.integers(20, 140)) * ph + rng.uniform(0, 6.28)) * rng.uniform(0.1, 0.25)
+                  for _ in range(3))
+        B[:, b] = np.clip(L * (0.78 + mod), 0, 1.2)
+    return L, B
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("audio")
@@ -68,22 +91,33 @@ def main():
     ap.add_argument("--color", default="F4E9D8", help="màu thân thanh (hex)")
     ap.add_argument("--accent", default="FFC978", help="màu đầu thanh (hex)")
     ap.add_argument("--glow", type=float, default=0.55, help="độ sáng viền phát sáng (0 = tắt)")
+    ap.add_argument("--loop-seconds", type=int, default=60, help="chế độ synthetic: độ dài 1 vòng lặp liền mạch")
+    ap.add_argument("--seed", type=int, default=11)
     ap.add_argument("--with-audio", action="store_true")
     ap.add_argument("--scene", help="video nền để ghép lên (lặp theo độ dài audio)")
     ap.add_argument("--bottom", type=int, default=70)
     ap.add_argument("--limit", type=float, help="chỉ làm N giây đầu")
     a = ap.parse_args()
 
-    x = read_audio(a.audio)
-    dur = len(x) / SR
-    if a.limit:
-        dur = min(dur, a.limit)
-    N = int(dur * FPS)
+    syn = a.audio == "synthetic"
     cols = a.bars | 1
     centre = cols // 2
     nb = centre + 1
-    L, B = analyse(x[:int(dur * SR) + SR], nb)
-    L, B = L[:N], B[:N]
+    if syn:
+        dur = float(a.loop_seconds)
+        N = int(dur * FPS)
+        L, B = synthetic(N, nb, a.seed)
+        a.with_audio = False
+        if a.scene:
+            raise SystemExit("--scene cần audio thật")
+    else:
+        x = read_audio(a.audio)
+        dur = len(x) / SR
+        if a.limit:
+            dur = min(dur, a.limit)
+        N = int(dur * FPS)
+        L, B = analyse(x[:int(dur * SR) + SR], nb)
+        L, B = L[:N], B[:N]
 
     # mô phỏng lò xo: lên nhanh, xuống êm -> chuyển động mượt, tự nhiên
     def smooth(v, up=0.7, down=0.16):
@@ -92,8 +126,12 @@ def main():
             prev = out[f - 1] if f else np.zeros_like(v[0])
             out[f] = np.where(v[f] > prev, prev + (v[f] - prev) * up, prev + (v[f] - prev) * down)
         return out
-    Ls = smooth(L[:, None])[:, 0]
-    Bs = smooth(B)
+    if syn:  # chạy 2 vòng rồi lấy vòng sau: trạng thái lò xo khớp ở mối nối
+        Ls = smooth(np.tile(L, 2)[:, None])[N:, 0]
+        Bs = smooth(np.tile(B, (2, 1)))[N:]
+    else:
+        Ls = smooth(L[:, None])[:, 0]
+        Bs = smooth(B)
 
     W, H, SS = a.width, a.height, 2
     total = cols * a.bar_w + (cols - 1) * a.gap
@@ -110,14 +148,16 @@ def main():
         ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgba", "-s", f"{W}x{H}",
          "-r", str(FPS), "-i", "-", "-c:v", "prores_ks", "-profile:v", "4444", "-pix_fmt", "yuva444p10le",
          "-vendor", "apl0", master], stdin=subprocess.PIPE)
+    wob_cycles = max(1, round(N / (2 * np.pi * 6)))  # số nguyên chu kỳ/vòng -> tuần hoàn
     for f in range(N):
         mask = Image.new("L", (W * SS, H * SS), 0)
         d = ImageDraw.Draw(mask)
         heights = []
         for i in range(cols):
             k = abs(i - centre)
-            hist = Ls[max(0, f - int(k * 1.1))]                 # giọng nảy ở giữa rồi lan ra hai bên
-            v = (0.62 * hist + 0.38 * Bs[f, k]) * env[i] * (1 + 0.04 * np.sin(f / 6 + i))
+            lag = int(k * 1.1)
+            hist = Ls[(f - lag) % N] if syn else Ls[max(0, f - lag)]                 # giọng nảy ở giữa rồi lan ra hai bên
+            v = (0.62 * hist + 0.38 * Bs[f, k]) * env[i] * (1 + 0.04 * np.sin(2 * np.pi * wob_cycles * f / N + i))
             h = minh + (maxh - minh) * min(1.0, float(v)) ** 1.1
             heights.append(h)
             xx = x0 + i * (a.bar_w + a.gap)
