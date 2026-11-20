@@ -27,3 +27,9 @@ KHÔNG được nói đã kiểm chất lượng âm thanh nếu chưa kiểm tr
 ## G. Giao
 Kịch bản hoàn chỉnh; 1 MP3; 1 transcript TXT; số từ thực; thời lượng thực; báo cáo kỹ thuật.
 Nguyên tắc: CHẤT LƯỢNG HƠN SỐ LƯỢNG.
+
+## H. Ghi chú của chủ kênh (20/11/2026)
+- Thời lượng ngắn hơn 30 phút vẫn CHẤP NHẬN (ví dụ 26 phút). Quan trọng nhất là KHÔNG lặp.
+- Luôn BÁO thời lượng ước tính (kèm khoảng sai số) từ số từ; tuyệt đối không bịa/lặp/kéo giãn nội dung để dài hơn.
+- Hiệu chỉnh ước tính: truyện ex-wife-dinner v2 = 3.664 từ -> đo thật 26,2 phút (khoảng 140 từ/phút, --speed-scale 0.9, đã gồm khoảng nghỉ).
+  Ước tính sau này: phút ≈ số từ / 135 (sai số khoảng ±10%), sau đó thay bằng số đo thật khi có file.
