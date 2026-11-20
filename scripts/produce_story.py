@@ -197,7 +197,7 @@ def probe(path):
 
 def to_mp3(src_wav, dst, gain_db):
     ff("-i", str(src_wav), "-af",
-       f"aresample=44100,volume={gain_db:.3f}dB,alimiter=limit=0.891:level=disabled",
+       f"aresample=44100,volume={gain_db:.3f}dB,alimiter=limit=0.84:level=disabled",
        "-ac", "2", "-b:a", "320k", str(dst))
 
 
@@ -260,7 +260,7 @@ def main():
         audio[i], nf = render_chapter(w, model, prompt, meta["seed"], i, chapters[i - 1], sr, work,
                                       a.speed_scale, qc, a.seed_offset, qlog)
         total_fails += nf
-    if qc:
+    if qc and qlog:
         head = f"QC Whisper: {len(qlog)} câu kiểm, {total_fails} câu LỖI sau 3 lần đọc\n"
         (out / "qc_report.txt").write_text(head + "\n".join(qlog) + "\n", encoding="utf-8")
         print(head.strip() + f" (chi tiết: {out / 'qc_report.txt'})")
