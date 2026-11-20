@@ -32,7 +32,7 @@ import soundfile as sf
 
 FULL_NAME = "HER_SIDE_OF_THE_STORY_FULL_AUDIO.mp3"
 MIN_WORDS, MAX_WORDS = 4500, 6000
-MIN_MIN, MAX_MIN = 30.0, 60.0
+MIN_MIN, MAX_MIN = 20.0, 60.0  # mục tiêu 30-35 phút; dưới 30 chỉ CẢNH BÁO và báo đúng thời lượng thật (quy tắc V2.0)
 CHUNK_GAP = 0.4  # giây, giữa các câu trong cùng đoạn (0.3-0.5)
 PARA_GAP = 0.9  # giây, giữa các đoạn (0.7-1.2)
 CHAPTER_GAP = 0.8  # giây, giữa các chương trong file ghép
@@ -198,7 +198,7 @@ def probe(path):
 def to_mp3(src_wav, dst, gain_db):
     ff("-i", str(src_wav), "-af",
        f"aresample=44100,volume={gain_db:.3f}dB,alimiter=limit=0.891:level=disabled",
-       "-ac", "2", "-b:a", "192k", str(dst))
+       "-ac", "2", "-b:a", "320k", str(dst))
 
 
 def mmss(sec):
@@ -220,6 +220,7 @@ def main():
     ap.add_argument("--only", type=int, help="chỉ đọc thử chương này, không ghép, không kiểm thời lượng")
     ap.add_argument("--speed-scale", type=float, default=1.0,
                     help="nhân tốc độ đọc (vd 0.9 = chậm 10%%) để chỉnh số từ/phút và tổng thời lượng")
+    ap.add_argument("--single", action="store_true", help="chỉ xuất 1 file MP3 liền mạch (không xuất từng chương)")
     ap.add_argument("--no-qc", action="store_true", help="bỏ bước kiểm lỗi lặp/cắt/lệch lời bằng Whisper")
     ap.add_argument("--seed-offset", type=int, default=0,
                     help="đổi bộ số ngẫu nhiên để đọc lại các chương chưa đạt QC")
@@ -294,6 +295,8 @@ def main():
     full_wav, gain = export(idx_list, True)
     total_min = len(sf.read(full_wav, dtype="float32")[0]) / sr / 60
     print(f"Thời lượng thực đo: {total_min:.1f} phút (cho phép {MIN_MIN:.0f}-{MAX_MIN:.0f})")
+    if total_min < 30:
+        print("CẢNH BÁO: dưới mục tiêu 30 phút. Quy tắc V2.0: báo đúng thời lượng thật, KHÔNG thêm nội dung lặp để kéo dài.")
     if not (MIN_MIN <= total_min <= MAX_MIN):
         raise SystemExit("Thời lượng ngoài 30-60 phút: KHÔNG xuất MP3. "
                          + ("Mở rộng truyện." if total_min < MIN_MIN else "Cắt bớt truyện."))
@@ -305,14 +308,15 @@ def main():
         lines.append(f"{mmss(offset)} {chapters[i - 1]['title']}")
         offset += dur + CHAPTER_GAP
         wav = cpath(i)
-        to_mp3(wav, out / FILES[i - 1], gain)
+        if not a.single:
+            to_mp3(wav, out / FILES[i - 1], gain)
     to_mp3(full_wav, out / FULL_NAME, gain)
     (out / "chapters.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
     (out / "transcript.txt").write_text(
         "\n\n".join(f"{c['title']}\n\n" + "\n\n".join(t for _, t in c["paras"])
                     for c in chapters) + "\n", encoding="utf-8")
 
-    for f in FILES + [FULL_NAME]:
+    for f in ([FULL_NAME] if a.single else FILES + [FULL_NAME]):
         d, rate, ch, kbps = probe(out / f)
         li, tp = measure(out / f)
         report.append(f"{f}: {mmss(d)} | {kbps} kbps | {rate} Hz | {ch} ch | "
@@ -320,6 +324,8 @@ def main():
     (out / "production_report.txt").write_text(
         f"voice: {name} | platform: {platform}\n"
         f"words: {words} | duration: {total_min:.1f} min | wpm: {words / total_min:.0f}\n"
+        "kiểm nghe bằng tai: CHƯA THỰC HIỆN (cần người nghe); đã đo âm lượng/đỉnh trên file MP3; QC Whisper: "
+        + ("tắt" if a.no_qc else f"bật, {total_fails} câu lỗi") + "\n"
         f"target: {TARGET_LUFS} LUFS, true peak <= {TARGET_TP} dBTP "
         "(đo lại trên chính file MP3)\n" + "\n".join(report) + "\n", encoding="utf-8")
     print(f"Xong. {out}\n" + "\n".join(report))
