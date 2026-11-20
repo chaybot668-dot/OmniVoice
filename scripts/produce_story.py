@@ -75,9 +75,62 @@ def count_words(ch):
     return sum(len(t.split()) for _, t in ch["paras"])
 
 
+_UNITS = {"zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
+          "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15,
+          "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20, "thirty": 30,
+          "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90}
+_ORD = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5, "sixth": 6, "seventh": 7, "eighth": 8,
+        "ninth": 9, "tenth": 10, "eleventh": 11, "twelfth": 12, "thirteenth": 13, "fourteenth": 14,
+        "fifteenth": 15, "sixteenth": 16, "seventeenth": 17, "eighteenth": 18, "nineteenth": 19,
+        "twentieth": 20, "thirtieth": 30}
+_FILL = {"and", "dollar", "dollars", "cent", "cents"}
+
+
+def _numwords(toks):
+    """Đổi số viết bằng chữ ('thirty one thousand four hundred and twelve') thành chữ số, để so với Whisper ('31,412')."""
+    out, i = [], 0
+    while i < len(toks):
+        t = toks[i]
+        if t in _ORD:
+            out.append(str(_ORD[t]))
+            i += 1
+            continue
+        if t in _UNITS or t in ("hundred", "thousand", "million"):
+            total = cur = 0
+            j = i
+            while j < len(toks):
+                w = toks[j]
+                if w in _UNITS:
+                    cur += _UNITS[w]
+                elif w == "hundred":
+                    cur = (cur or 1) * 100
+                elif w == "thousand":
+                    total += (cur or 1) * 1000
+                    cur = 0
+                elif w == "million":
+                    total += (cur or 1) * 1000000
+                    cur = 0
+                elif w == "and" and (total or cur) and j + 1 < len(toks) and (toks[j + 1] in _UNITS or toks[j + 1] == "hundred"):
+                    pass
+                else:
+                    break
+                j += 1
+            out.append(str(total + cur))
+            i = j
+            continue
+        out.append(t)
+        i += 1
+    return out
+
+
 def _norm(text):
-    text = re.sub(r"[^a-z0-9' ]+", " ", text.lower().replace("-", " ").replace("’", "'"))
-    return text.split()
+    text = text.lower().replace("’", "'").replace("-", " ")
+    text = re.sub(r"(?<=\d),(?=\d{3})", "", text)  # 31,412 -> 31412
+    text = re.sub(r"[^a-z0-9' ]+", " ", text)
+    toks = _numwords(text.split())
+    toks = [re.sub(r"^(\d+)(st|nd|rd|th)$", r"\1", t) for t in toks]
+    toks = [str(int(t)) if t.isdigit() else t for t in toks]
+    return [t for t in toks if t not in _FILL]
 
 
 def find_repeats(words):
@@ -127,8 +180,15 @@ def qc_check(model, audio, sr, text, speed, min_sim=0.82):
     return dict(ok=not flags, sim=sim, flags=flags, asr=asr)
 
 
+def cache_path(work, idx, scale):
+    """Chương đã đạt QC được giữ lại bất kể --seed-offset (tương thích tên cũ _o0)."""
+    new = work / f"ch{idx:02d}_s{scale:.2f}.wav"
+    old = work / f"ch{idx:02d}_s{scale:.2f}_o0.wav"
+    return new if new.exists() or not old.exists() else old
+
+
 def render_chapter(w, model, prompt, seed, idx, ch, sr, work, scale, qc=False, seed_off=0, qlog=None):
-    cache = work / f"ch{idx:02d}_s{scale:.2f}_o{seed_off}.wav"
+    cache = cache_path(work, idx, scale)
     if cache.exists():
         logging.info("Chương %d: dùng bản đã đọc (%s)", idx, cache)
         return sf.read(cache, dtype="float32")[0], 0
@@ -268,7 +328,7 @@ def main():
         if total_fails:
             raise SystemExit("Còn câu chưa đạt QC nên KHÔNG xuất MP3. Chạy lại với --seed-offset "
                              f"{a.seed_offset + 1} (các chương đã đạt được giữ nguyên, chỉ đọc lại chương lỗi).")
-    cpath = lambda i: work / f"ch{i:02d}_s{a.speed_scale:.2f}_o{a.seed_offset}.wav"
+    cpath = lambda i: cache_path(work, i, a.speed_scale)
 
     def export(idx_list, with_full):
         # Chuẩn hoá bằng MỘT mức gain chung để âm lượng các chương đồng đều.
