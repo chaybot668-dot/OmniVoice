@@ -4,7 +4,8 @@
 KHÔNG sửa chữ nào. Chỉ (1) gộp các dòng ngắn liền nhau thành đoạn ~35-85 từ để đọc liền mạch
 (đọc từng câu rời sẽ máy móc và có quá nhiều khoảng lặng), (2) gắn nhãn cảm xúc A-H cho từng phần.
 
-  python scripts/prepare_story.py stories/second-phone/original_script.txt stories/second-phone/story.txt
+  python scripts/prepare_story.py stories/second-phone/original_script.txt stories/second-phone/story.txt [A,C,D,...]
+(tham số thứ 3 tuỳ chọn: danh sách chế độ cảm xúc cho từng phần)
 """
 import re
 import sys
@@ -33,13 +34,14 @@ def group(lines):
     return paras
 
 
-def main(src, dst):
+def main(src, dst, modes=None):
+    section_modes = modes.split(",") if modes else SECTION_MODES
     text = Path(src).read_text(encoding="utf-8")
     out = []
     for k, block in enumerate(re.split(r"(?m)^## ", text)[1:]):
         title, body = block.split("\n", 1)
         lines = [l.strip() for l in body.split("\n") if l.strip()]
-        mode = SECTION_MODES[k] if k < len(SECTION_MODES) else "A"
+        mode = section_modes[k] if k < len(section_modes) else "A"
         out.append(f"## {title.strip()}\n")
         out += [f"[{mode}]\n{p}\n" for p in group(lines)]
     Path(dst).write_text("\n".join(out), encoding="utf-8")
@@ -51,4 +53,4 @@ def main(src, dst):
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:3])
+    main(*sys.argv[1:4])
