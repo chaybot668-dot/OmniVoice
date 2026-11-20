@@ -95,6 +95,7 @@ def main():
     ap.add_argument("--seed", type=int, default=11)
     ap.add_argument("--hard-edge", action="store_true", help="mép cứng (không khử răng cưa) -> xóa phông xanh sạch, không viền xanh")
     ap.add_argument("--bgcolor", default="000000", help="màu nền khi xuất .mp4 (phông xanh: 00FF00)")
+    ap.add_argument("--fast", action="store_true", help="vẽ nhanh hơn (bỏ phát sáng và siêu lấy mẫu), mép thanh kém mượt hơn chút")
     ap.add_argument("--with-audio", action="store_true")
     ap.add_argument("--scene", help="video nền để ghép lên (lặp theo độ dài audio)")
     ap.add_argument("--bottom", type=int, default=70)
@@ -135,7 +136,9 @@ def main():
         Ls = smooth(L[:, None])[:, 0]
         Bs = smooth(B)
 
-    W, H, SS = a.width, a.height, 2
+    W, H, SS = a.width, a.height, (1 if a.fast else 2)
+    if a.fast:
+        a.glow = 0
     total = cols * a.bar_w + (cols - 1) * a.gap
     x0 = (W - total) // 2
     body = hex2rgb(a.color)
@@ -146,10 +149,17 @@ def main():
     # gradient dọc cho từng thanh
     gy = np.linspace(0, 1, H * SS, dtype=np.float32)[:, None]
     master = a.out if a.out.endswith(".mov") else "/tmp/_bars_master.mov"
-    p = subprocess.Popen(
-        ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgba", "-s", f"{W}x{H}",
-         "-r", str(FPS), "-i", "-", "-c:v", "prores_ks", "-profile:v", "4444", "-pix_fmt", "yuva444p10le",
-         "-vendor", "apl0", master], stdin=subprocess.PIPE)
+    if a.scene:  # một lượt: vẽ thanh rồi chồng thẳng lên cảnh nền + âm thanh (không tạo file trung gian nặng)
+        cmd = ["ffmpeg", "-y", "-loglevel", "error", "-stream_loop", "-1", "-i", a.scene,
+               "-f", "rawvideo", "-pix_fmt", "rgba", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-", "-i", a.audio,
+               "-filter_complex", f"[0:v][1:v]overlay=(W-w)/2:H-h-{a.bottom}:shortest=1[v]",
+               "-map", "[v]", "-map", "2:a", "-t", f"{dur:.3f}", "-c:v", "libx264", "-preset", "veryfast",
+               "-crf", "21", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart", a.out]
+    else:
+        cmd = ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgba", "-s", f"{W}x{H}",
+               "-r", str(FPS), "-i", "-", "-c:v", "prores_ks", "-profile:v", "4444", "-pix_fmt", "yuva444p10le",
+               "-vendor", "apl0", master]
+    p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     wob_cycles = max(1, round(N / (2 * np.pi * 6)))  # số nguyên chu kỳ/vòng -> tuần hoàn
     for f in range(N):
         mask = Image.new("L", (W * SS, H * SS), 0)
@@ -186,15 +196,14 @@ def main():
         p.stdin.write(np.asarray(img, dtype=np.uint8).tobytes())
     p.stdin.close()
     p.wait()
+    if a.scene:
+        print(f"OK: {a.out} ({dur:.1f}s, thanh khớp âm thanh, ghép lên cảnh nền)")
+        return
 
     audio_args = ["-i", a.audio, "-map", "0:v", "-map", "1:a", "-c:a", "aac", "-b:a", "256k", "-shortest"] \
         if a.with_audio else ["-an"]
-    if a.scene:
-        subprocess.run(
-            ["ffmpeg", "-y", "-loglevel", "error", "-stream_loop", "-1", "-i", a.scene, "-i", master, "-i", a.audio,
-             "-filter_complex", f"[0:v][1:v]overlay=(W-w)/2:H-h-{a.bottom}:shortest=1[v]",
-             "-map", "[v]", "-map", "2:a", "-t", f"{dur:.3f}", "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
-             "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart", a.out], check=True)
+    if False:
+        pass
     elif a.out.endswith(".webm"):
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", master, *audio_args[:0], "-c:v", "libvpx-vp9",
                         "-pix_fmt", "yuva420p", "-b:v", "0", "-crf", "26", "-auto-alt-ref", "0", "-an", a.out],
