@@ -77,11 +77,17 @@ def api(token, method, fields=None, files=None):
         raise SystemExit(f"Không kết nối được Telegram ({e.reason}).")
 
 
+def _smart_title(text):
+    small = {"of", "the", "a", "an", "and", "at", "to", "in", "on", "for", "his", "her"}
+    words = text.lower().split()
+    return " ".join(w if (i and w in small) else w.capitalize() for i, w in enumerate(words))
+
+
 def pretty_title(raw):
     head, _, rest = raw.partition("—")
     if not rest:
-        return raw.title()
-    return f"{head.strip().title()}: {rest.strip().title()}"
+        return _smart_title(raw)
+    return f"{_smart_title(head.strip())}: {_smart_title(rest.strip())}"
 
 
 def yt_time(mmss):
