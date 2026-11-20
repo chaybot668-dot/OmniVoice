@@ -1,0 +1,16 @@
+{
+  "title": "The Woman Who Kept Sending Flowers to My House",
+  "topic": "Truyện hư cấu, bí ẩn hôn nhân (những bó hoa gửi mỗi thứ Sáu, chiếc chìa khóa kho và bí mật về ngôi nhà)",
+  "story_file": "story_v5.txt",
+  "voice": "Women Story Life (OmniVoice, AI); kiểm Whisper 99 câu, 0 câu lỗi",
+  "duration": "29:56",
+  "duration_text": "29 phút 56 giây (sát mục tiêu 30 phút; em ước tính trước là 30 phút). MP3 320 kbps, 44,1 kHz, stereo, -16,1 LUFS, đỉnh -1,4 dBTP",
+  "file": "D:\\women story\\out\\flowers-v5\\HER_SIDE_OF_THE_STORY_FULL_AUDIO.mp3",
+  "recommended_title": 2,
+  "touched": "em viết lại kịch bản theo yêu cầu (V4 rồi V5): sửa mạch logic, thêm tình tiết có manh mối gài trước (tiệm hoa, kho 214, hộp khóa, lời hứa viết tay, bản thỏa thuận bảo mật, cuộc bỏ phiếu hội đồng); các bản của Sếp giữ nguyên trong thư mục truyện. Kỹ thuật: gộp dòng ngắn thành đoạn, bỏ dấu markdown, không đổi chữ.",
+  "review": [
+    "Em chưa nghe lại audio (Claude không nghe được): nghe đầu/giữa/cuối, nhất là cảnh gala (Daniel đọc diễn văn) và cách đọc các tên Natalie, Claire, Whitcomb.",
+    "Chưa có nhạc nền ghép trong file này (công cụ ghép nhạc đã có, Sếp quyết có dùng không). YouTube không nhận MP3: cần dựng MP4 (cảnh lò sưởi + thanh âm thanh).",
+    "Tiêu đề: đề nghị số 3 ('The Drawings in the Storage Unit Were the Plans to My Own House')."
+  ]
+}

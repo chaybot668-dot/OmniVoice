@@ -11,7 +11,7 @@
   "highlights": [
     "✉️ Cards that said someone deserved to know the truth",
     "🗝️ A brass key and a storage unit my husband had paid for in secret",
-    "🏠 Drawings that matched the house I'd lived in for twelve years",
+    "🔐 A lockbox, a written promise, and drawings that matched the house I'd lived in for twelve years",
     "🏆 One last bouquet, timed for the most important night of his career"
   ],
   "cta": [
@@ -21,13 +21,33 @@
   ],
   "disclosure": "📖 This is a work of fiction. Characters, names and events are imaginary. Narrated with an AI-generated voice.",
   "channel_line": "✨ Every Woman Has a Story. Not Every Story Gets Told.",
-  "hashtags": ["#storytime", "#marriagestory", "#mysterystory", "#audiostory"],
-  "tags": [
-    "flowers sent to my house", "mysterious flowers every friday", "secret admirer flowers story", "storage unit secret",
-    "husband's secret past", "husband took credit for my work", "marriage secrets", "betrayal story",
-    "marriage mystery story", "emotional storytelling", "audio story", "story time", "women stories",
-    "relationship stories", "Her Side of the Story"
+  "hashtags": [
+    "#storytime",
+    "#marriagestory",
+    "#mysterystory",
+    "#audiostory"
   ],
-  "thumbnail_text": ["FLOWERS EVERY FRIDAY", "UNIT 214", "SHE DREW IT. HE SIGNED IT."],
+  "tags": [
+    "flowers sent to my house",
+    "mysterious flowers every friday",
+    "secret admirer flowers story",
+    "storage unit secret",
+    "husband's secret past",
+    "husband took credit for my work",
+    "marriage secrets",
+    "betrayal story",
+    "marriage mystery story",
+    "emotional storytelling",
+    "audio story",
+    "story time",
+    "women stories",
+    "relationship stories",
+    "Her Side of the Story"
+  ],
+  "thumbnail_text": [
+    "FLOWERS EVERY FRIDAY",
+    "UNIT 214",
+    "SHE DREW IT. HE SIGNED IT."
+  ],
   "pinned_comment": "Would you have opened unit 214, or asked Daniel first? Tell me what you would have done."
 }
