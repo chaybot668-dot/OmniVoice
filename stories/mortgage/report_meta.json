@@ -1,0 +1,17 @@
+{
+  "title": "He Asked for a Divorce the Day I Paid Off Our Mortgage",
+  "topic": "Truyện hư cấu, kịch tính hôn nhân và tiền bạc (vợ trả hết thế chấp, chồng đòi ly hôn cùng ngày)",
+  "story_file": "story_v2.txt",
+  "voice": "Women Story Life (OmniVoice, AI)",
+  "duration": "CHỜ SỐ ĐO",
+  "duration_text": "CHỜ SỐ ĐO (ước tính 25–28 phút)",
+  "file": "D:\\women story\\out\\mortgage\\HER_SIDE_OF_THE_STORY_FULL_AUDIO.mp3",
+  "recommended_title": 0,
+  "touched": "em viết truyện từ đầu theo prompt của Sếp; không có bản gốc của Sếp. Kỹ thuật: gộp dòng ngắn thành đoạn, không đổi chữ.",
+  "review": [
+    "Em chưa nghe lại audio (Claude không nghe được): nghe đầu/giữa/cuối, nhất là cảnh đối chất và cách đọc tên Megan, Paul, Voss, Okafor.",
+    "Phần pháp lý trong truyện giữ ở mức chung, không nêu bang hay kết quả vụ việc; em không phải luật sư.",
+    "Chưa có nhạc nền ghép trong file này (công cụ ghép nhạc đã có, Sếp quyết có dùng không). YouTube không nhận MP3: cần dựng MP4.",
+    "Tiêu đề: đề nghị số 1 (đúng tên truyện, đã gợi tò mò); số 4 là phương án gợi tò mò mạnh hơn nếu muốn thử."
+  ]
+}
