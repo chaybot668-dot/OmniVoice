@@ -42,3 +42,8 @@ Nguyên tắc: CHẤT LƯỢNG HƠN SỐ LƯỢNG.
 - Trước khi xuất kiểm: lặp ý, câu kéo dài, độ chính xác dữ kiện, nhịp kể, chất lượng giọng, nhạc nền, file âm thanh thực tế.
 - Nguyên tắc cuối: Quality over Length. Factual Integrity over Drama.
 - Giới hạn của công cụ (nói thật): chưa có nhạc nền/ducking tự động; chưa nghe được giọng (cần chủ kênh nghe); kiểm dữ kiện chỉ có nghĩa với nội dung phi hư cấu và cần nguồn đã mở đọc.
+
+## J. Kênh truyện hư cấu (women) — chủ kênh xác nhận 20/11/2026
+- Truyện của kênh này là HƯ CẤU, dựng bằng AI, đã tích nhãn AI khi đăng: KHÔNG cần kiểm chứng tính xác thực/nguồn thật.
+- Mục "Factual Integrity" chỉ áp dụng cho nội dung phi hư cấu (nếu sau này có).
+- Báo cáo không còn nhắc việc kiểm chứng nguồn hay nhắc bật nhãn AI. Vẫn kiểm: lặp ý, mạch truyện/logic, âm thanh, thời lượng thực.

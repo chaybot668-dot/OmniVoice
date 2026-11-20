@@ -69,8 +69,7 @@ def build_md(meta, pkg, chapters):
            "## 5. Chữ ảnh bìa (gợi ý)", ""] + [f"- {x}" for x in pkg["thumbnail_text"]] + [
            "", "## 6. Bình luận ghim (tuỳ chọn)", "", fence(pkg["pinned_comment"]), "",
            "## 7. Kiểm trước khi đăng", "",
-           "- [ ] Mục **Nội dung bị thay đổi hoặc tổng hợp** (giọng AI): kiểm tra và bật nếu YouTube yêu cầu.",
-           "- [ ] Giữ dòng _work of fiction_ trong mô tả để không gây hiểu nhầm là chuyện thật.",
+           "- [x] Truyện hư cấu dựng bằng AI, Sếp đã tích nhãn AI khi đăng (không cần kiểm chứng nguồn).",
            "- [ ] Đối tượng: **không** phải nội dung dành cho trẻ em.",
            "- [ ] Nghe lại video cuối (đầu, giữa, cuối) trước khi bấm đăng.",
            "- [ ] Nhạc/hình dùng đều thuộc quyền của Sếp (nhạc tổng hợp bằng code, ảnh logo của kênh).", ""]
