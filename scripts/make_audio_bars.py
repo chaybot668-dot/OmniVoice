@@ -93,6 +93,8 @@ def main():
     ap.add_argument("--glow", type=float, default=0.55, help="độ sáng viền phát sáng (0 = tắt)")
     ap.add_argument("--loop-seconds", type=int, default=60, help="chế độ synthetic: độ dài 1 vòng lặp liền mạch")
     ap.add_argument("--seed", type=int, default=11)
+    ap.add_argument("--hard-edge", action="store_true", help="mép cứng (không khử răng cưa) -> xóa phông xanh sạch, không viền xanh")
+    ap.add_argument("--bgcolor", default="000000", help="màu nền khi xuất .mp4 (phông xanh: 00FF00)")
     ap.add_argument("--with-audio", action="store_true")
     ap.add_argument("--scene", help="video nền để ghép lên (lặp theo độ dài audio)")
     ap.add_argument("--bottom", type=int, default=70)
@@ -177,6 +179,10 @@ def main():
             ga[..., 3] *= a.glow
             img = Image.alpha_composite(Image.fromarray(ga.astype(np.uint8), "RGBA"), img)
         img = img.resize((W, H), Image.LANCZOS)
+        if a.hard_edge:
+            arr = np.asarray(img, dtype=np.uint8).copy()
+            arr[..., 3] = np.where(arr[..., 3] >= 128, 255, 0)
+            img = Image.fromarray(arr, "RGBA")
         p.stdin.write(np.asarray(img, dtype=np.uint8).tobytes())
     p.stdin.close()
     p.wait()
@@ -194,7 +200,7 @@ def main():
                         "-pix_fmt", "yuva420p", "-b:v", "0", "-crf", "26", "-auto-alt-ref", "0", "-an", a.out],
                        check=True)
     elif a.out.endswith(".mp4"):
-        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", f"color=c=black:s={W}x{H}:r={FPS}",
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", f"color=c=0x{a.bgcolor}:s={W}x{H}:r={FPS}",
                         "-i", master, "-filter_complex", "[0:v][1:v]overlay=shortest=1[v]", "-map", "[v]",
                         "-t", f"{dur:.3f}", "-c:v", "libx264", "-crf", "16", "-pix_fmt", "yuv420p", "-an", a.out],
                        check=True)
