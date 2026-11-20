@@ -75,26 +75,100 @@ def count_words(ch):
     return sum(len(t.split()) for _, t in ch["paras"])
 
 
-def render_chapter(w, model, prompt, seed, idx, ch, sr, work, scale):
-    cache = work / f"ch{idx:02d}_s{scale:.2f}.wav"
+def _norm(text):
+    text = re.sub(r"[^a-z0-9' ]+", " ", text.lower().replace("-", " ").replace("’", "'"))
+    return text.split()
+
+
+def find_repeats(words):
+    """Cụm 2-8 từ lặp liền nhau (vd 'I looked at him I looked at him')."""
+    hits = []
+    for n in range(2, 9):
+        for i in range(len(words) - 2 * n + 1):
+            if words[i:i + n] == words[i + n:i + 2 * n]:
+                hits.append(" ".join(words[i:i + n]))
+    return hits
+
+
+def qc_check(model, audio, sr, text, speed, min_sim=0.82):
+    """Kiểm 1 câu: nhận dạng lại bằng Whisper rồi so với kịch bản + tìm lặp/cắt/vỡ tiếng."""
+    import difflib
+    flags = []
+    exp = _norm(text)
+    asr = model.transcribe((np.asarray(audio, dtype=np.float32), sr))
+    got = _norm(asr)
+    sim = difflib.SequenceMatcher(None, exp, got).ratio() if exp else 1.0
+    if sim < min_sim:
+        flags.append(f"lệch lời ({sim:.2f})")
+    if len(got) > len(exp) * 1.25 + 2:
+        flags.append("thừa chữ (có thể lặp)")
+    if len(got) < len(exp) * 0.75 - 2:
+        flags.append("thiếu chữ (có thể bị cắt)")
+    extra = [r for r in find_repeats(got) if r not in " ".join(exp)]
+    if extra:
+        flags.append("lặp cụm: " + "; ".join(sorted(set(extra))[:3]))
+    dur = len(audio) / sr
+    per_word = dur / max(1, len(exp))
+    if per_word > 1.0 or per_word < 0.22:
+        flags.append(f"tốc độ bất thường ({per_word:.2f} s/từ)")
+    a = np.abs(np.asarray(audio, dtype=np.float32))
+    if a.size and (a >= 0.999).mean() > 0.002:
+        flags.append("vỡ tiếng (clipping)")
+    frame = int(0.05 * sr)
+    if a.size > frame * 4:
+        rms = np.sqrt((a[:a.size // frame * frame].reshape(-1, frame) ** 2).mean(axis=1))
+        quiet = rms < 0.003
+        run = best = 0
+        for q in quiet[int(0.3 / 0.05):-int(0.3 / 0.05)]:
+            run = run + 1 if q else 0
+            best = max(best, run)
+        if best * 0.05 > 1.3:
+            flags.append(f"khoảng lặng giữa câu {best * 0.05:.1f}s")
+    return dict(ok=not flags, sim=sim, flags=flags, asr=asr)
+
+
+def render_chapter(w, model, prompt, seed, idx, ch, sr, work, scale, qc=False, seed_off=0, qlog=None):
+    cache = work / f"ch{idx:02d}_s{scale:.2f}_o{seed_off}.wav"
     if cache.exists():
         logging.info("Chương %d: dùng bản đã đọc (%s)", idx, cache)
-        return sf.read(cache, dtype="float32")[0]
-    parts = []
+        return sf.read(cache, dtype="float32")[0], 0
+    parts, fails = [], 0
     for i, (mode, text) in enumerate(ch["paras"], 1):
         speed = w.MODE_SPEED.get(mode, w.DEFAULT_SPEED) * scale
         chunks = w.split_chunks(text)
         for j, chunk in enumerate(chunks):
             logging.info("Chương %d - đoạn %d/%d - câu %d/%d", idx, i, len(ch["paras"]),
                          j + 1, len(chunks))
-            parts.append(np.asarray(w.gen(model, chunk, seed + idx * 1000 + i * 10 + j,
-                                          voice_clone_prompt=prompt, speed=speed),
-                                    dtype=np.float32).reshape(-1))
+            best = None
+            for att in range(3 if qc else 1):
+                sd = seed + seed_off * 100003 + idx * 1000 + i * 10 + j + att * 7919
+                au = np.asarray(w.gen(model, chunk, sd, voice_clone_prompt=prompt, speed=speed),
+                                dtype=np.float32).reshape(-1)
+                if not qc:
+                    best = (au, None)
+                    break
+                res = qc_check(model, au, sr, chunk, speed)
+                if best is None or (res["ok"], res["sim"]) > (best[1]["ok"], best[1]["sim"]):
+                    best = (au, res)
+                if res["ok"]:
+                    break
+                logging.info("   QC lỗi lần %d: %s -> đọc lại", att + 1, "; ".join(res["flags"]))
+            au, res = best
+            if res is not None:
+                if not res["ok"]:
+                    fails += 1
+                if qlog is not None:
+                    qlog.append(f"ch{idx} đoạn{i} câu{j + 1}: {'OK' if res['ok'] else 'LỖI'} "
+                                f"sim={res['sim']:.2f} {'; '.join(res['flags'])}\n    chữ: {chunk[:90]}")
+            parts.append(au)
             gap = PARA_GAP if j == len(chunks) - 1 else CHUNK_GAP
             parts.append(np.zeros(int(gap * sr), dtype=np.float32))
     audio = np.concatenate(parts[:-1])  # bỏ khoảng lặng cuối chương
-    sf.write(cache, audio, sr)
-    return audio
+    if fails == 0:
+        sf.write(cache, audio, sr)  # chỉ lưu cache khi chương đạt QC; chương lỗi sẽ đọc lại
+    else:
+        sf.write(work / f"ch{idx:02d}_FAIL.wav", audio, sr)
+    return audio, fails
 
 
 def ff(*args):
@@ -146,6 +220,9 @@ def main():
     ap.add_argument("--only", type=int, help="chỉ đọc thử chương này, không ghép, không kiểm thời lượng")
     ap.add_argument("--speed-scale", type=float, default=1.0,
                     help="nhân tốc độ đọc (vd 0.9 = chậm 10%%) để chỉnh số từ/phút và tổng thời lượng")
+    ap.add_argument("--no-qc", action="store_true", help="bỏ bước kiểm lỗi lặp/cắt/lệch lời bằng Whisper")
+    ap.add_argument("--seed-offset", type=int, default=0,
+                    help="đổi bộ số ngẫu nhiên để đọc lại các chương chưa đạt QC")
     ap.add_argument("--device")
     a = ap.parse_args()
     if not shutil.which("ffmpeg"):
@@ -173,10 +250,23 @@ def main():
     model = w.load_model(a.device)
     sr = model.sampling_rate
 
+    qc = not a.no_qc
+    if qc:
+        model.load_asr_model()  # Whisper, tải lần đầu ~1,6 GB
     todo = [a.only] if a.only else range(1, len(FILES) + 1)
-    audio = {i: render_chapter(w, model, prompt, meta["seed"], i, chapters[i - 1], sr, work,
-                               a.speed_scale) for i in todo}
-    cpath = lambda i: work / f"ch{i:02d}_s{a.speed_scale:.2f}.wav"
+    audio, qlog, total_fails = {}, [], 0
+    for i in todo:
+        audio[i], nf = render_chapter(w, model, prompt, meta["seed"], i, chapters[i - 1], sr, work,
+                                      a.speed_scale, qc, a.seed_offset, qlog)
+        total_fails += nf
+    if qc:
+        head = f"QC Whisper: {len(qlog)} câu kiểm, {total_fails} câu LỖI sau 3 lần đọc\n"
+        (out / "qc_report.txt").write_text(head + "\n".join(qlog) + "\n", encoding="utf-8")
+        print(head.strip() + f" (chi tiết: {out / 'qc_report.txt'})")
+        if total_fails:
+            raise SystemExit("Còn câu chưa đạt QC nên KHÔNG xuất MP3. Chạy lại với --seed-offset "
+                             f"{a.seed_offset + 1} (các chương đã đạt được giữ nguyên, chỉ đọc lại chương lỗi).")
+    cpath = lambda i: work / f"ch{i:02d}_s{a.speed_scale:.2f}_o{a.seed_offset}.wav"
 
     def export(idx_list, with_full):
         # Chuẩn hoá bằng MỘT mức gain chung để âm lượng các chương đồng đều.
