@@ -3,7 +3,7 @@
 Chạy:  python agent/tts_server.py            (mặc định cổng 8765)
 Claude gọi qua agent/say.py — OmniVoice chỉ làm đúng một việc: đọc chữ thành giọng.
 """
-import argparse, io, json, os, re, subprocess, threading, uuid
+import argparse, io, json, sys, os, re, subprocess, threading, uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import numpy as np, soundfile as sf, torch
 from omnivoice import OmniVoice, VoiceClonePrompt
@@ -33,6 +33,13 @@ def voice_kwargs(voice, instruct):
     if os.path.exists(pt):
         return {"voice_clone_prompt": VoiceClonePrompt.load(pt)}
     wav = os.path.join(VOICES, voice + ".wav")
+    design = os.path.join(VOICES, voice + ".design.txt")
+    if not os.path.exists(wav) and os.path.exists(design):
+        # Giọng thiết kế (không nhái ai): tạo 1 câu mẫu bằng mô tả, lưu lại rồi clone → lần nào cũng cùng giọng
+        instruct, sample = [l.strip() for l in open(design, encoding="utf-8").read().strip().splitlines()[:2]]
+        a = MODEL.generate(text=sample, instruct=instruct)[0]
+        sf.write(wav, a, SR)
+        open(os.path.join(VOICES, voice + ".txt"), "w", encoding="utf-8").write(sample)
     if not os.path.exists(wav):
         if voice != "default" and os.path.exists(os.path.join(VOICES, "default.wav")):
             return voice_kwargs("default", None)
@@ -78,8 +85,8 @@ JOBS = {}
 
 
 def list_voices():
-    return sorted({os.path.splitext(f)[0] for f in os.listdir(VOICES)
-                   if f.endswith((".wav", ".pt"))}) if os.path.isdir(VOICES) else []
+    return sorted({f.split(".")[0] for f in os.listdir(VOICES)
+                   if f.endswith((".wav", ".pt", ".design.txt"))}) if os.path.isdir(VOICES) else []
 
 
 def ffmpeg_exe():
@@ -109,13 +116,18 @@ def start_job(req):
     """Chạy Claude Code không giao diện: Claude làm agent, OmniVoice đọc."""
     jid = uuid.uuid4().hex[:8]
     topic = req["topic"].strip()
-    voice = req.get("voice") or CFG.get("default_voice") or "default"
+    lang = req.get("lang") or "vi"
+    voice = req.get("voice") or ("en-host" if lang == "en" else "theo manstory.config.json" if lang == "auto" else CFG.get("default_voice") or "default")
     if req.get("mode") == "video" and CFG.get("manstory_dir"):
         cwd = CFG["manstory_dir"]
-        prompt = f"/manstory Làm video từ chủ đề sau (giọng OmniVoice local, voice {voice}): {topic}"
+        prompt = (f"/manstory Chế độ tự động, làm video {'TIẾNG ANH (language en, xem references/tieng-anh.md)' if lang == 'en' else ('đúng ngôn ngữ của yêu cầu' if lang == 'auto' else 'tiếng Việt')}"
+                  f" từ chủ đề sau, giọng OmniVoice local voice_id {voice}"
+                  f"{', độ dài ' + req['length'] if req.get('length') else ''}: {topic}. "
+                  "Chạy hết [0]–[7] không hỏi lại. Bước nào tốn credit (ảnh AI) thì bỏ qua, dùng explainer/sketch. "
+                  "Cuối cùng in dòng: KET_QUA: <đường dẫn final.mp4>")
     else:
         cwd = ROOT
-        prompt = (f"Làm theo skill omnivoice-tts. Chủ đề: {topic}. Giọng: {voice}. "
+        prompt = (f"Làm theo skill omnivoice-tts. Ngôn ngữ: {'English' if lang == 'en' else 'tiếng Việt'}. Chủ đề: {topic}. Giọng: {voice}. "
                   f"Độ dài: {req.get('length') or 'khoảng 60 giây'}. Chạy hết không hỏi lại. "
                   "Cuối cùng in dòng: KET_QUA: <đường dẫn voice.wav>")
     JOBS[jid] = {"status": "running", "log": "", "cwd": cwd}
@@ -138,6 +150,28 @@ def start_job(req):
 
     threading.Thread(target=run, daemon=True).start()
     return jid
+
+
+def telegram_watch():
+    """Tự lấy việc gửi qua bot Telegram (/y chủ đề, /video kịch bản) → giao Claude làm video ManStory."""
+    import time
+    md = CFG["manstory_dir"]
+    inbox = [sys.executable, os.path.join(md, ".claude", "skills", "manstory", "scripts", "telegram_inbox.py")]
+    queue = []
+    while True:
+        try:
+            if not any(j["status"] == "running" for j in JOBS.values()):
+                if not queue:
+                    r = subprocess.run(inbox, cwd=md, capture_output=True, text=True, encoding="utf-8", errors="replace")
+                    queue += [l.strip() for l in r.stdout.splitlines() if l.strip().endswith(".md")]
+                if queue:
+                    f = queue.pop(0)
+                    print("Telegram → việc mới:", f)
+                    start_job({"mode": "video", "topic": f"việc trong file {f} (nhận từ Telegram; tự nhận biết tiếng Việt hay tiếng Anh: "
+                               "tin viết tiếng Anh hoặc có chữ 'English'/'EN' → làm video tiếng Anh)", "lang": "auto"})
+        except Exception as e:
+            print("Telegram lỗi:", e)
+        time.sleep(int(CFG.get("telegram_poll_seconds", 60)))
 
 
 class H(BaseHTTPRequestHandler):
@@ -203,6 +237,9 @@ def main():
     dev, dt = pick_device()
     print(f"Đang nạp OmniVoice trên {dev}…")
     MODEL = OmniVoice.from_pretrained(a.model, device_map=dev, dtype=dt)
+    if CFG.get("telegram_watch") and CFG.get("manstory_dir"):
+        threading.Thread(target=telegram_watch, daemon=True).start()
+        print("Đang nghe Telegram: gửi bot '/y <chủ đề>' là tự làm video")
     print(f"Sẵn sàng: http://127.0.0.1:{a.port}")
     ThreadingHTTPServer(("127.0.0.1", a.port), H).serve_forever()
 

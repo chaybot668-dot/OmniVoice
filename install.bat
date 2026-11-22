@@ -8,7 +8,8 @@ set "PATH=%USERPROFILE%\.local\bin;%PATH%"
 if not exist .venv uv venv --python 3.11 .venv || goto :err
 call .venv\Scripts\activate
 uv pip install torch==2.8.0+cu128 torchaudio==2.8.0+cu128 --extra-index-url https://download.pytorch.org/whl/cu128 --index-strategy unsafe-best-match || goto :err
-uv pip install -e . imageio-ffmpeg || goto :err
+uv pip install -e . imageio-ffmpeg pillow || goto :err
+copy /y .venv\Scripts\python.exe .venv\Scripts\python3.exe >nul
 python -c "import torch;print('GPU:',torch.cuda.is_available(),torch.cuda.get_device_name(0) if torch.cuda.is_available() else '')"
 if not exist agent\config.json copy agent\config.example.json agent\config.json >nul
 where claude >nul 2>nul || powershell -ExecutionPolicy Bypass -c "irm https://claude.ai/install.ps1 | iex"

@@ -17,6 +17,7 @@ button:disabled{opacity:.5}pre{white-space:pre-wrap;max-height:380px;overflow:au
 <textarea id="t" rows="4" placeholder="Vd: Vì sao người trẻ khó tiết kiệm tiền?"></textarea>
 <div class="r">
 <select id="m"><option value="audio">Chỉ giọng đọc</option><option value="video">Video ManStory</option></select>
+<select id="g"><option value="vi">Tiếng Việt</option><option value="en">English</option></select>
 <select id="v"></select>
 <input id="l" placeholder="Độ dài (vd 60 giây)">
 </div>
@@ -27,17 +28,18 @@ const $=id=>document.getElementById(id);
 fetch('/status').then(r=>r.json()).then(d=>{
   $('v').innerHTML=(d.voices.length?d.voices:['auto']).map(x=>`<option>${x}</option>`).join('');
   if(!d.video)$('m').options[1].disabled=true;
+  $('g').onchange=()=>{const w=$('g').value==='en'?'en-host':'default';if([...$('v').options].some(o=>o.value===w))$('v').value=w;};
 });
 $('b').onclick=async()=>{
   if(!$('t').value.trim())return;
   $('b').disabled=true;$('a').hidden=true;$('o').textContent='';$('s').textContent='⏳ Claude đang làm…';
-  const {id}=await (await fetch('/job',{method:'POST',body:JSON.stringify({topic:$('t').value,mode:$('m').value,voice:$('v').value,length:$('l').value})})).json();
+  const {id}=await (await fetch('/job',{method:'POST',body:JSON.stringify({topic:$('t').value,mode:$('m').value,voice:$('v').value,lang:$('g').value,length:$('l').value})})).json();
   const tick=async()=>{
     const j=await (await fetch('/job/'+id)).json();
     $('o').textContent=j.log;$('o').scrollTop=1e9;
     if(j.status==='running')return setTimeout(tick,2000);
     $('s').textContent=j.status==='done'?'✅ Xong':'❌ '+j.status;$('b').disabled=false;
-    if(j.file){$('a').src='/file?p='+encodeURIComponent(j.file);$('a').hidden=false;}
+    if(j.file&&/\.mp4$/i.test(j.file)){$('o').textContent+='\n🎬 Video: '+j.file;}else if(j.file){$('a').src='/file?p='+encodeURIComponent(j.file);$('a').hidden=false;}
   };tick();
 };
 </script></body></html>

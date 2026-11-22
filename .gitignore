@@ -32,4 +32,5 @@ outputs/*
 !outputs/.gitkeep
 voices/*
 !voices/.gitkeep
+!voices/*.design.txt
 agent/config.json

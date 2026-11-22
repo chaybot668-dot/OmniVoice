@@ -15,3 +15,10 @@ Nhập chủ đề → chọn **Chỉ giọng đọc** hoặc **Video ManStory**
 ## ManStory
 `manstory.config.json` → `"voice_provider": "omnivoice"`: mọi giọng đọc ManStory gọi OmniVoice trên máy (start.bat phải đang chạy).
 Muốn quay lại SaydiVoice: đổi thành `"saydivoice"`.
+
+## Tiếng Anh + tự động hoàn toàn
+- Giọng tiếng Anh `en-host` (nam trẻ, giọng Mỹ, giọng **thiết kế**, không nhái ai): lần đầu dùng tự tạo `voices\en-host.wav`,
+  các lần sau cùng một giọng. Không ưng → xóa `voices\en-host.wav/.txt/.pt` để tạo giọng khác, hoặc sửa dòng 1 của `en-host.design.txt`.
+- `agent\config.json`: `"manstory_dir": "C:/Users/TGC/manstory"`, `"telegram_watch": true` → nhắn bot Telegram `/y <chủ đề>` là tự làm video.
+- Khóa của ManStory để trong file `C:\Users\TGC\manstory\.env`:
+  `TELEGRAM_BOT_TOKEN=...`, `TELEGRAM_CHAT_ID=...`, `PIXABAY_API_KEY=...`

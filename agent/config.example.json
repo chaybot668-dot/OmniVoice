@@ -1,7 +1,19 @@
 {
   "default_voice": "default",
-  "manstory_dir": "C:/Users/TEN/manstory",
+  "manstory_dir": "C:/Users/TGC/manstory",
   "claude_cmd": "claude",
   "permission_mode": "acceptEdits",
-  "allowed_tools": ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", "Skill"]
+  "allowed_tools": [
+    "Bash",
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "WebSearch",
+    "WebFetch",
+    "Skill"
+  ],
+  "telegram_watch": true,
+  "telegram_poll_seconds": 60
 }
