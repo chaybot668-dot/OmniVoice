@@ -28,3 +28,7 @@ examples/exp*
 .claude/
 *.wav
 *.jsonl
+outputs/*
+!outputs/.gitkeep
+voices/*
+!voices/.gitkeep
