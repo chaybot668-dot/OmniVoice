@@ -20,5 +20,5 @@ if not exist agent\ngrok_ok.txt (
 set /p DOMAIN=<agent\ngrok_domain.txt
 .venv\Scripts\python.exe -c "import json,secrets;p='agent/config.json';c=json.load(open(p,encoding='utf-8'));c.setdefault('remote_token',secrets.token_urlsafe(24));json.dump(c,open(p,'w',encoding='utf-8'),indent=2,ensure_ascii=False);print('MA BI MAT (dan vao o Claude hoi):',c['remote_token'])"
 echo Duong ham: https://%DOMAIN%  ^(de cua so nay mo^)
-"%NG%" http --url=%DOMAIN% 8765
+"%NG%" http --url=%DOMAIN% http://127.0.0.1:8765
 pause
