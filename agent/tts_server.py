@@ -190,7 +190,24 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _remote(self):
+        """Yêu cầu đi qua đường hầm (ngrok) → chỉ cho đọc giọng, bắt buộc có mã bí mật."""
+        return bool(self.headers.get("X-Forwarded-For") or self.headers.get("X-Forwarded-Host"))
+
+    def _blocked(self):
+        if not self._remote():
+            return False
+        ok_path = self.path.startswith(("/v1/audio/speech", "/samples", "/status"))
+        tok = CFG.get("remote_token")
+        ok_tok = tok and self.headers.get("Authorization", "") == f"Bearer {tok}"
+        if ok_path and ok_tok:
+            return False
+        self._send(403, {"error": "từ xa chỉ được đọc giọng, cần mã đúng"})
+        return True
+
     def do_GET(self):
+        if self._blocked():
+            return
         if self.path in ("/", "/index.html"):
             return self._raw(200, open(os.path.join(HERE, "app.html"), "rb").read(), "text/html; charset=utf-8")
         if self.path.startswith("/job/"):
@@ -208,6 +225,8 @@ class H(BaseHTTPRequestHandler):
         self._send(200, {"ok": True, "voices": list_voices(), "video": bool(CFG.get("manstory_dir"))})
 
     def do_POST(self):
+        if self._blocked():
+            return
         if self.path.endswith("/audio/speech"):  # tương thích SaydiVoice/OpenAI → ManStory dùng được
             try:
                 req = json.loads(self.rfile.read(int(self.headers["Content-Length"])))

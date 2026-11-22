@@ -34,3 +34,4 @@ voices/*
 !voices/.gitkeep
 !voices/*.design.txt
 agent/config.json
+agent/ngrok_domain.txt
