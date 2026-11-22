@@ -206,7 +206,11 @@ class H(BaseHTTPRequestHandler):
         ok_tok = tok and self.headers.get("Authorization", "") == f"Bearer {tok}"
         if ok_path and ok_tok:
             return False
-        self._send(403, {"error": "từ xa chỉ được đọc giọng, cần mã đúng"})
+        got = self.headers.get("Authorization", "")[7:]
+        print(f"⚠️ Từ chối yêu cầu từ xa {self.path}: mã nhận được dài {len(got)} ký tự, bắt đầu '{got[:4]}' "
+              f"— mã đúng dài {len(tok or '')} ký tự, bắt đầu '{(tok or '')[:4]}'")
+        self._send(403, {"error": "từ xa chỉ được đọc giọng, cần mã đúng",
+                         "got_len": len(got), "got_prefix": got[:4]})
         return True
 
     def do_GET(self):
@@ -263,6 +267,8 @@ def main():
     if CFG.get("telegram_watch") and CFG.get("manstory_dir"):
         threading.Thread(target=telegram_watch, daemon=True).start()
         print("Đang nghe Telegram: gửi bot '/y <chủ đề>' là tự làm video")
+    if CFG.get("remote_token"):
+        print("MA BI MAT (dan vao Claude neu duoc hoi):", CFG["remote_token"])
     print(f"Sẵn sàng: http://127.0.0.1:{a.port}")
     ThreadingHTTPServer(("127.0.0.1", a.port), H).serve_forever()
 
