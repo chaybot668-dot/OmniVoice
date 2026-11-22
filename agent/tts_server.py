@@ -130,6 +130,10 @@ def start_job(req):
         prompt = (f"Làm theo skill omnivoice-tts. Ngôn ngữ: {'English' if lang == 'en' else 'tiếng Việt'}. Chủ đề: {topic}. Giọng: {voice}. "
                   f"Độ dài: {req.get('length') or 'khoảng 60 giây'}. Chạy hết không hỏi lại. "
                   "Cuối cùng in dòng: KET_QUA: <đường dẫn voice.wav>")
+    if not os.path.isdir(cwd):
+        JOBS[jid] = {"status": "lỗi", "log": f"Không thấy thư mục {cwd}. Sửa \"manstory_dir\" trong agent/config.json "
+                     "(vd C:/Users/TGC/manstory) hoặc tải manstory về máy.", "cwd": cwd}
+        return jid
     JOBS[jid] = {"status": "running", "log": "", "cwd": cwd}
     cmd = [CFG.get("claude_cmd", "claude"), "-p", prompt, "--permission-mode", CFG.get("permission_mode", "acceptEdits"),
            "--allowedTools", *CFG.get("allowed_tools", ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", "Skill"])]
@@ -222,7 +226,7 @@ class H(BaseHTTPRequestHandler):
             if not any(f.startswith(os.path.abspath(r)) for r in OUT_ROOTS):
                 return self._send(403, {"error": "ngoài thư mục kết quả"})
             return self._raw(200, open(f, "rb").read(), "application/octet-stream")
-        self._send(200, {"ok": True, "voices": list_voices(), "video": bool(CFG.get("manstory_dir"))})
+        self._send(200, {"ok": True, "voices": list_voices(), "video": bool(CFG.get("manstory_dir")) and os.path.isdir(CFG["manstory_dir"])})
 
     def do_POST(self):
         if self._blocked():
