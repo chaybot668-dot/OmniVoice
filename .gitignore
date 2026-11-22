@@ -35,3 +35,5 @@ voices/*
 !voices/*.design.txt
 agent/config.json
 agent/ngrok_domain.txt
+agent/bin/
+agent/ngrok_ok.txt
