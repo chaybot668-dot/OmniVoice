@@ -32,3 +32,4 @@ outputs/*
 !outputs/.gitkeep
 voices/*
 !voices/.gitkeep
+agent/config.json

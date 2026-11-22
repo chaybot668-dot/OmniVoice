@@ -1,0 +1,43 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OmniVoice Agent</title>
+<style>
+:root{--bg:#0f1115;--card:#181b22;--fg:#e8e8ea;--mut:#9aa0aa;--acc:#4f8cff}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,Segoe UI,sans-serif}
+main{max-width:760px;margin:0 auto;padding:24px 16px}
+h1{font-size:22px;margin:0 0 4px}p.s{color:var(--mut);margin:0 0 20px}
+.c{background:var(--card);border-radius:12px;padding:16px;margin-bottom:16px}
+textarea,select,input{width:100%;box-sizing:border-box;background:#0b0d11;color:var(--fg);border:1px solid #2a2f3a;border-radius:8px;padding:10px;font:inherit}
+.r{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}.r>*{flex:1;min-width:150px}
+button{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:12px;font-weight:600;cursor:pointer;width:100%;margin-top:12px}
+button:disabled{opacity:.5}pre{white-space:pre-wrap;max-height:380px;overflow:auto;font-size:13px;color:#c9ccd3}
+.st{font-weight:600}audio{width:100%;margin-top:10px}
+</style></head><body><main>
+<h1>🎙️ OmniVoice Agent</h1><p class="s">Nhập chủ đề — Claude nghiên cứu, viết kịch bản; OmniVoice (máy Sếp) đọc.</p>
+<div class="c">
+<textarea id="t" rows="4" placeholder="Vd: Vì sao người trẻ khó tiết kiệm tiền?"></textarea>
+<div class="r">
+<select id="m"><option value="audio">Chỉ giọng đọc</option><option value="video">Video ManStory</option></select>
+<select id="v"></select>
+<input id="l" placeholder="Độ dài (vd 60 giây)">
+</div>
+<button id="b">▶ Chạy</button></div>
+<div class="c"><div class="st" id="s">Sẵn sàng</div><audio id="a" controls hidden></audio><pre id="o"></pre></div>
+</main><script>
+const $=id=>document.getElementById(id);
+fetch('/status').then(r=>r.json()).then(d=>{
+  $('v').innerHTML=(d.voices.length?d.voices:['auto']).map(x=>`<option>${x}</option>`).join('');
+  if(!d.video)$('m').options[1].disabled=true;
+});
+$('b').onclick=async()=>{
+  if(!$('t').value.trim())return;
+  $('b').disabled=true;$('a').hidden=true;$('o').textContent='';$('s').textContent='⏳ Claude đang làm…';
+  const {id}=await (await fetch('/job',{method:'POST',body:JSON.stringify({topic:$('t').value,mode:$('m').value,voice:$('v').value,length:$('l').value})})).json();
+  const tick=async()=>{
+    const j=await (await fetch('/job/'+id)).json();
+    $('o').textContent=j.log;$('o').scrollTop=1e9;
+    if(j.status==='running')return setTimeout(tick,2000);
+    $('s').textContent=j.status==='done'?'✅ Xong':'❌ '+j.status;$('b').disabled=false;
+    if(j.file){$('a').src='/file?p='+encodeURIComponent(j.file);$('a').hidden=false;}
+  };tick();
+};
+</script></body></html>

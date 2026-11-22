@@ -18,7 +18,7 @@ a = p.parse_args()
 url = f"http://127.0.0.1:{a.port}"
 try:
     if a.ping:
-        print(urllib.request.urlopen(url, timeout=5).read().decode()); sys.exit(0)
+        print(urllib.request.urlopen(url + "/status", timeout=5).read().decode()); sys.exit(0)
     lines = open(a.script, encoding="utf-8").read().splitlines() if a.script else [a.text or ""]
     body = {"lines": lines, "out": os.path.abspath(a.out or "outputs/out.wav"), "voice": a.voice,
             "instruct": a.instruct, "speed": a.speed, "pause": a.pause,
